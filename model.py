@@ -87,9 +87,9 @@ class SelfAttention(nn.Module):
         xv = self.values(x) # B, S, E -> B, S, E
 
         # split heads
-        xq = xq.reshape(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
-        xk = xk.reshape(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
-        xv = xv.reshape(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
+        xq = xq.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
+        xk = xk.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
+        xv = xv.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
 
         # reshape
         xq = xq.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
@@ -100,7 +100,7 @@ class SelfAttention(nn.Module):
         xk = xk.transpose(-1, -2)  # B, H, S, HE -> B, H, HE, S
         x_attn = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S
         # # scale
-        # x_attn /= float(xv.size(-1)) ** 0.5
+        # x_attn /= float(self.head_dim) ** 0.5
         x_attn = torch.softmax(x_attn, dim=-1)
 
         # apply attention
