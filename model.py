@@ -77,6 +77,8 @@ class SelfAttention(nn.Module):
         self.wq = nn.Linear(self.embed_dim, self.embed_dim)
         self.wk = nn.Linear(self.embed_dim, self.embed_dim)
         self.wv = nn.Linear(self.embed_dim, self.embed_dim)
+        # # Merge qkv
+        # self.qkv = nn.Linear(self.embed_dim, 3 * self.embed_dim)
 
     def forward(self, x, mask=None):
         B, S, E = x.shape
@@ -85,6 +87,9 @@ class SelfAttention(nn.Module):
         xq = self.wq(x) # B, S, E -> B, S, E
         xk = self.wk(x) # B, S, E -> B, S, E
         xv = self.wv(x) # B, S, E -> B, S, E
+        # # Merge qkv
+        # qkv = self.qkv(x) # B, S, E -> B, S, E * 3
+        # xq, xk, xv = torch.split(qkv, self.embed_dim, dim=-1)
 
         # Split heads
         xq = xq.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
