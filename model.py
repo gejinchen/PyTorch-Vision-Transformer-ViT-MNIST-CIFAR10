@@ -90,8 +90,6 @@ class SelfAttention(nn.Module):
         xq = xq.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
         xk = xk.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
         xv = xv.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
-
-        # reshape
         xq = xq.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
         xk = xk.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
         xv = xv.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
