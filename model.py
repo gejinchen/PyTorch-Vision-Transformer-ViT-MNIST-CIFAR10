@@ -31,6 +31,42 @@ class EmbedLayer(nn.Module):
         return x
 
 
+# class SelfAttention(nn.Module):
+#     def __init__(self, embed_dim, n_attention_heads):
+#         super().__init__()
+#         self.embed_dim = embed_dim
+#         self.n_attention_heads = n_attention_heads
+#         self.head_embed_dim = embed_dim // n_attention_heads
+
+#         self.queries = nn.Linear(self.embed_dim, self.head_embed_dim * self.n_attention_heads, bias=True)
+#         self.keys = nn.Linear(self.embed_dim, self.head_embed_dim * self.n_attention_heads, bias=True)
+#         self.values = nn.Linear(self.embed_dim, self.head_embed_dim * self.n_attention_heads, bias=True)
+
+#     def forward(self, x):
+#         B, S, E = x.shape
+
+#         xq = self.queries(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+#         xq = xq.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
+#         xk = self.keys(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+#         xk = xk.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
+#         xv = self.values(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+#         xv = xv.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
+
+#         xq = xq.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
+#         xk = xk.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
+#         xv = xv.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
+
+#         xk = xk.transpose(1, 2)  # (BH), S, HE -> (BH), HE, S
+#         x_attention = xq.bmm(xk)  # (BH), S, HE  .  (BH), HE, S -> (BH), S, S    ========================= should do / sqrt(dk)?
+#         x_attention = torch.softmax(x_attention, dim=-1)
+
+#         x = x_attention.bmm(xv)  # (BH), S, S . (BH), S, HE -> (BH), S, HE
+#         x = x.reshape([-1, self.n_attention_heads, S, self.head_embed_dim])  # (BH), S, HE -> B, H, S, HE
+#         x = x.transpose(1, 2)  # B, H, S, HE -> B, S, H, HE
+#         x = x.reshape(B, S, E)  # B, S, H, HE -> B, S, E
+#         return x
+    
+
 class SelfAttention(nn.Module):
     def __init__(self, embed_dim, n_attention_heads):
         super().__init__()
@@ -45,23 +81,28 @@ class SelfAttention(nn.Module):
     def forward(self, x):
         B, S, E = x.shape
 
-        xq = self.queries(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+        # linear layers
+        xq = self.queries(x) # B, S, E -> B, S, E
+        xk = self.keys(x) # B, S, E -> B, S, E
+        xv = self.values(x) # B, S, E -> B, S, E
+
+        # split heads
+        xq = xq.reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+        xk = xk.reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+        xv = xv.reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+
+        # reshape
         xq = xq.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
-        xk = self.keys(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
         xk = xk.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
-        xv = self.values(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
         xv = xv.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
 
-        xq = xq.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
-        xk = xk.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
-        xv = xv.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
-
-        xk = xk.transpose(1, 2)  # (BH), S, HE -> (BH), HE, S
-        x_attention = xq.bmm(xk)  # (BH), S, HE  .  (BH), HE, S -> (BH), S, S    ========================= should do / sqrt(dk)?
+        # self attention
+        xk = xk.transpose(-1, -2)  # B, H, S, HE -> B, H, HE, S
+        x_attention = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S    ========================= should do / sqrt(dk)?
         x_attention = torch.softmax(x_attention, dim=-1)
+        x = torch.matmul(x_attention, xv)  # B, H, S, S * B, H, S, HE -> B, H, S, HE
 
-        x = x_attention.bmm(xv)  # (BH), S, S . (BH), S, HE -> (BH), S, HE
-        x = x.reshape([-1, self.n_attention_heads, S, self.head_embed_dim])  # (BH), S, HE -> B, H, S, HE
+        # concatenate heads
         x = x.transpose(1, 2)  # B, H, S, HE -> B, S, H, HE
         x = x.reshape(B, S, E)  # B, S, H, HE -> B, S, E
         return x

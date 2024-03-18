@@ -26,6 +26,8 @@ def update_args(args):
     return args
 
 if __name__ == '__main__':
+    torch.manual_seed(0)
+
     parser = argparse.ArgumentParser(description='Vision Transformer for MNIST')
 
     # Training Arguments
