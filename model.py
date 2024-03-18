@@ -68,15 +68,15 @@ class EmbedLayer(nn.Module):
     
 
 class SelfAttention(nn.Module):
-    def __init__(self, embed_dim, n_attention_heads):
+    def __init__(self, embed_dim, num_heads):
         super().__init__()
         self.embed_dim = embed_dim
-        self.n_attention_heads = n_attention_heads
-        self.head_embed_dim = embed_dim // n_attention_heads
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
 
-        self.queries = nn.Linear(self.embed_dim, self.head_embed_dim * self.n_attention_heads, bias=True)
-        self.keys = nn.Linear(self.embed_dim, self.head_embed_dim * self.n_attention_heads, bias=True)
-        self.values = nn.Linear(self.embed_dim, self.head_embed_dim * self.n_attention_heads, bias=True)
+        self.queries = nn.Linear(self.embed_dim, self.embed_dim)
+        self.keys = nn.Linear(self.embed_dim, self.embed_dim)
+        self.values = nn.Linear(self.embed_dim, self.embed_dim)
 
     def forward(self, x):
         B, S, E = x.shape
@@ -87,9 +87,9 @@ class SelfAttention(nn.Module):
         xv = self.values(x) # B, S, E -> B, S, E
 
         # split heads
-        xq = xq.reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
-        xk = xk.reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
-        xv = xv.reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
+        xq = xq.reshape(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
+        xk = xk.reshape(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
+        xv = xv.reshape(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
 
         # reshape
         xq = xq.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
@@ -98,7 +98,9 @@ class SelfAttention(nn.Module):
 
         # self attention
         xk = xk.transpose(-1, -2)  # B, H, S, HE -> B, H, HE, S
-        x_attn = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S    ========================= should do / sqrt(dk)?
+        x_attn = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S
+        # # scale
+        # x_attn /= float(xv.size(-1)) ** 0.5
         x_attn = torch.softmax(x_attn, dim=-1)
 
         # apply attention
