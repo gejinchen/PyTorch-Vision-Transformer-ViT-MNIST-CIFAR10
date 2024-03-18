@@ -97,11 +97,11 @@ class SelfAttention(nn.Module):
         # Self attention
         xk = xk.transpose(-1, -2)  # B, H, S, HE -> B, H, HE, S
         x_attn = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S
-        # # Scale
-        # x_attn /= float(self.head_dim) ** 0.5
-        # # Apply mask
-        # if mask is not None:
-        #     x_attn += mask.to(x_attn.dtype) * x_attn.new_tensor(-1e4)
+        # Scale
+        x_attn /= float(self.head_dim) ** 0.5
+        # Apply mask
+        if mask is not None:
+            x_attn += mask.to(x_attn.dtype) * x_attn.new_tensor(-1e4)
         x_attn = torch.softmax(x_attn, dim=-1)
 
         # Apply attention
