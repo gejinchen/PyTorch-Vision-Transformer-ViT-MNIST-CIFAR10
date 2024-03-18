@@ -78,15 +78,15 @@ class SelfAttention(nn.Module):
         self.keys = nn.Linear(self.embed_dim, self.embed_dim)
         self.values = nn.Linear(self.embed_dim, self.embed_dim)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         B, S, E = x.shape
 
-        # linear layers
+        # Linear layers
         xq = self.queries(x) # B, S, E -> B, S, E
         xk = self.keys(x) # B, S, E -> B, S, E
         xv = self.values(x) # B, S, E -> B, S, E
 
-        # split heads
+        # Split heads
         xq = xq.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
         xk = xk.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
         xv = xv.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
@@ -94,17 +94,20 @@ class SelfAttention(nn.Module):
         xk = xk.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
         xv = xv.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
 
-        # self attention
+        # Self attention
         xk = xk.transpose(-1, -2)  # B, H, S, HE -> B, H, HE, S
         x_attn = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S
-        # # scale
+        # # Scale
         # x_attn /= float(self.head_dim) ** 0.5
+        # # Apply mask
+        # if mask is not None:
+        #     x_attn = x_attn.masked_fill(mask == 0, float('-inf'))
         x_attn = torch.softmax(x_attn, dim=-1)
 
-        # apply attention
+        # Apply attention
         x = torch.matmul(x_attn, xv)  # B, H, S, S * B, H, S, HE -> B, H, S, HE
 
-        # concatenate heads
+        # Concatenate heads
         x = x.transpose(1, 2)  # B, H, S, HE -> B, S, H, HE
         x = x.reshape(B, S, E)  # B, S, H, HE -> B, S, E
         return x
