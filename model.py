@@ -74,17 +74,17 @@ class SelfAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
 
-        self.queries = nn.Linear(self.embed_dim, self.embed_dim)
-        self.keys = nn.Linear(self.embed_dim, self.embed_dim)
-        self.values = nn.Linear(self.embed_dim, self.embed_dim)
+        self.wq = nn.Linear(self.embed_dim, self.embed_dim)
+        self.wk = nn.Linear(self.embed_dim, self.embed_dim)
+        self.wv = nn.Linear(self.embed_dim, self.embed_dim)
 
     def forward(self, x, mask=None):
         B, S, E = x.shape
 
         # Linear layers
-        xq = self.queries(x) # B, S, E -> B, S, E
-        xk = self.keys(x) # B, S, E -> B, S, E
-        xv = self.values(x) # B, S, E -> B, S, E
+        xq = self.wq(x) # B, S, E -> B, S, E
+        xk = self.wk(x) # B, S, E -> B, S, E
+        xv = self.wv(x) # B, S, E -> B, S, E
 
         # Split heads
         xq = xq.view(B, S, self.num_heads, self.head_dim)  # B, S, E -> B, S, H, HE
@@ -101,7 +101,7 @@ class SelfAttention(nn.Module):
         # x_attn /= float(self.head_dim) ** 0.5
         # # Apply mask
         # if mask is not None:
-        #     x_attn = x_attn.masked_fill(mask == 0, float('-inf'))
+        #     x_attn += mask.to(x_attn.dtype) * x_attn.new_tensor(-1e4)
         x_attn = torch.softmax(x_attn, dim=-1)
 
         # Apply attention
