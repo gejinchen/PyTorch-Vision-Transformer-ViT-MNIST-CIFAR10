@@ -98,9 +98,11 @@ class SelfAttention(nn.Module):
 
         # self attention
         xk = xk.transpose(-1, -2)  # B, H, S, HE -> B, H, HE, S
-        x_attention = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S    ========================= should do / sqrt(dk)?
-        x_attention = torch.softmax(x_attention, dim=-1)
-        x = torch.matmul(x_attention, xv)  # B, H, S, S * B, H, S, HE -> B, H, S, HE
+        x_attn = torch.matmul(xq, xk)  # B, H, S, HE  *  B, H, HE, S -> B, H, S, S    ========================= should do / sqrt(dk)?
+        x_attn = torch.softmax(x_attn, dim=-1)
+
+        # apply attention
+        x = torch.matmul(x_attn, xv)  # B, H, S, S * B, H, S, HE -> B, H, S, HE
 
         # concatenate heads
         x = x.transpose(1, 2)  # B, H, S, HE -> B, S, H, HE
