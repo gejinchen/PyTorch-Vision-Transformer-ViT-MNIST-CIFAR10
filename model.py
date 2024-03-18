@@ -43,27 +43,27 @@ class SelfAttention(nn.Module):
         self.values = nn.Linear(self.embed_dim, self.head_embed_dim * self.n_attention_heads, bias=True)
 
     def forward(self, x):
-        B, S, E = x.shape
+        m, s, e = x.shape
 
-        xq = self.queries(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
-        xq = xq.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
-        xk = self.keys(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
-        xk = xk.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
-        xv = self.values(x).reshape(B, S, self.n_attention_heads, self.head_embed_dim)  # B, S, E -> B, S, H, HE
-        xv = xv.transpose(1, 2)  # B, S, H, HE -> B, H, S, HE
+        xq = self.queries(x).reshape(m, s, self.n_attention_heads, self.head_embed_dim)  # B, Q, E -> B, Q, H, HE
+        xq = xq.transpose(1, 2)  # B, Q, H, HE -> B, H, Q, HE
+        xk = self.keys(x).reshape(m, s, self.n_attention_heads, self.head_embed_dim)  # B, K, E -> B, K, H, HE
+        xk = xk.transpose(1, 2)  # B, K, H, HE -> B, H, K, HE
+        xv = self.values(x).reshape(m, s, self.n_attention_heads, self.head_embed_dim)  # B, V, E -> B, V, H, HE
+        xv = xv.transpose(1, 2)  # B, V, H, HE -> B, H, V, HE
 
-        xq = xq.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
-        xk = xk.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
-        xv = xv.reshape([-1, S, self.head_embed_dim])  # B, H, S, HE -> (BH), S, HE
+        xq = xq.reshape([-1, s, self.head_embed_dim])  # B, H, Q, HE -> (BH), Q, HE
+        xk = xk.reshape([-1, s, self.head_embed_dim])  # B, H, K, HE -> (BH), K, HE
+        xv = xv.reshape([-1, s, self.head_embed_dim])  # B, H, V, HE -> (BH), V, HE
 
-        xk = xk.transpose(1, 2)  # (BH), S, HE -> (BH), HE, S
-        x_attention = xq.bmm(xk)  # (BH), S, HE  .  (BH), HE, S -> (BH), S, S    ========================= should do / sqrt(dk)?
+        xk = xk.transpose(1, 2)  # (BH), K, HE -> (BH), HE, K
+        x_attention = xq.bmm(xk)  # (BH), Q, HE  .  (BH), HE, K -> (BH), Q, K
         x_attention = torch.softmax(x_attention, dim=-1)
 
-        x = x_attention.bmm(xv)  # (BH), S, S . (BH), S, HE -> (BH), S, HE
-        x = x.reshape([-1, self.n_attention_heads, S, self.head_embed_dim])  # (BH), S, HE -> B, H, S, HE
-        x = x.transpose(1, 2)  # B, H, S, HE -> B, S, H, HE
-        x = x.reshape(B, S, E)  # B, S, H, HE -> B, S, E
+        x = x_attention.bmm(xv)  # (BH), Q, K . (BH), V, HE -> (BH), Q, HE
+        x = x.reshape([-1, self.n_attention_heads, s, self.head_embed_dim])  # (BH), Q, HE -> B, H, Q, HE
+        x = x.transpose(1, 2)  # B, H, Q, HE -> B, Q, H, HE
+        x = x.reshape(m, s, e)  # B, Q, H, HE -> B, Q, E
         return x
 
 
